@@ -1,0 +1,6 @@
+# Downloader de videos - dependencias
+# Instale com: pip install -r requirements.txt
+#
+# curl-cffi habilita a imitacao de navegador, necessaria para sites
+# como o TikTok. Sem ela o YouTube ainda funciona normalmente.
+yt-dlp[default,curl-cffi]
