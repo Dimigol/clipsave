@@ -1,0 +1,3 @@
+# Dependencias extras, usadas apenas para gerar o executavel (.exe)
+# Instale com: pip install -r requirements-dev.txt
+pyinstaller

@@ -7,3 +7,6 @@ venv/
 *.mkv
 *.webm
 downloads/
+build/
+dist/
+*.spec
