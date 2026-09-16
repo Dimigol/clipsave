@@ -6,6 +6,7 @@ Uso:
     python downloader.py                 -> modo interativo (pergunta o link)
     python downloader.py <link>          -> baixa direto
     python downloader.py <link> -a       -> baixa apenas o audio (mp3)
+    python downloader.py <link> -q 720   -> limita a resolucao a 720p
 """
 
 import os
@@ -14,6 +15,18 @@ import sys
 from yt_dlp import YoutubeDL
 
 PASTA_DESTINO = "downloads"
+
+# resolucoes selecionaveis na interface (altura maxima em pixels)
+QUALIDADES = {
+    "Melhor disponivel": None,
+    "1080p": 1080,
+    "720p": 720,
+    "480p": 480,
+}
+
+
+class DownloadCancelado(Exception):
+    """Levantada dentro do hook de progresso para interromper um download em andamento."""
 
 
 def formatar_bytes(n):
@@ -60,8 +73,12 @@ def alvo_imitacao():
         return None
 
 
-def montar_opcoes(somente_audio=False):
-    """Monta o dicionario de configuracao do yt-dlp."""
+def montar_opcoes(somente_audio=False, altura_maxima=None):
+    """Monta o dicionario de configuracao do yt-dlp.
+
+    altura_maxima: limite de resolucao vertical em pixels (ex.: 1080, 720),
+    ou None para baixar a melhor qualidade disponivel.
+    """
     opcoes = {
         "outtmpl": os.path.join(PASTA_DESTINO, "%(title)s.%(ext)s"),
         "progress_hooks": [progresso],
@@ -84,18 +101,22 @@ def montar_opcoes(somente_audio=False):
             }
         ]
     else:
-        # melhor video + melhor audio, unidos em mp4
-        opcoes["format"] = "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best"
+        # melhor video + melhor audio, unidos em mp4, respeitando o limite de altura
+        limite = f"[height<={altura_maxima}]" if altura_maxima else ""
+        opcoes["format"] = (
+            f"bestvideo{limite}[ext=mp4]+bestaudio[ext=m4a]"
+            f"/best{limite}[ext=mp4]/best{limite}"
+        )
         opcoes["merge_output_format"] = "mp4"
 
     return opcoes
 
 
-def baixar(link, somente_audio=False):
+def baixar(link, somente_audio=False, altura_maxima=None):
     """Baixa o video (ou audio) do link informado."""
     os.makedirs(PASTA_DESTINO, exist_ok=True)
 
-    with YoutubeDL(montar_opcoes(somente_audio)) as ydl:
+    with YoutubeDL(montar_opcoes(somente_audio, altura_maxima)) as ydl:
         # extrai os metadados uma unica vez, sem baixar
         info = ydl.extract_info(link, download=False)
 
@@ -158,6 +179,14 @@ def main():
 
     args = [a for a in sys.argv[1:]]
     somente_audio = "-a" in args or "--audio" in args
+
+    altura_maxima = None
+    if "-q" in args:
+        indice = args.index("-q")
+        if indice + 1 < len(args):
+            altura_maxima = int(args[indice + 1])
+            args = args[:indice] + args[indice + 2:]
+
     links = [a for a in args if not a.startswith("-")]
 
     if links:
@@ -173,7 +202,7 @@ def main():
         return 1
 
     try:
-        baixar(link, somente_audio)
+        baixar(link, somente_audio, altura_maxima)
     except KeyboardInterrupt:
         print("\nDownload cancelado pelo usuario.")
         return 1
